@@ -1,0 +1,6 @@
+{
+  "name": "FitCraft Gym & Dieta",
+  "description": "Entrenamiento personalizado de gimnasio, nutrición y cálculo calórico según tu estatura, peso y objetivo (adelgazar o ganar músculo), con seguimiento de medidas y fotos de antes y después.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
