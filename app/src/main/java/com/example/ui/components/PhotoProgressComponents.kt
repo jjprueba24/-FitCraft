@@ -498,14 +498,16 @@ fun AddProgressPhotoBottomSheet(
 
             Spacer(modifier = Modifier.height(20.dp))
 
+            val context = LocalContext.current
             Button(
                 onClick = {
                     val uri = selectedUri
                     if (uri != null) {
+                        val permanentUriString = copyPhotoToInternalStorage(context, uri)
                         val sdf = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
                         val photo = ProgressPhoto(
                             dateFormatted = sdf.format(Date()),
-                            photoUriString = uri.toString(),
+                            photoUriString = permanentUriString,
                             weightAtPhotoKg = weightStr.toFloatOrNull() ?: currentWeightKg,
                             label = label.ifBlank { "Progreso" },
                             note = note.trim()
@@ -527,8 +529,28 @@ fun AddProgressPhotoBottomSheet(
             ) {
                 Icon(Icons.Filled.Add, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Guardar Foto de Progreso", fontWeight = FontWeight.Bold)
+                Text("Guardar Foto Segura en la App", fontWeight = FontWeight.Bold)
             }
         }
+    }
+}
+
+private fun copyPhotoToInternalStorage(context: android.content.Context, sourceUri: Uri): String {
+    return try {
+        val photosDir = java.io.File(context.filesDir, "progress_photos")
+        if (!photosDir.exists()) photosDir.mkdirs()
+        val destFile = java.io.File(photosDir, "photo_${System.currentTimeMillis()}.jpg")
+        context.contentResolver.openInputStream(sourceUri)?.use { input ->
+            java.io.FileOutputStream(destFile).use { output ->
+                input.copyTo(output)
+            }
+        }
+        if (destFile.exists() && destFile.length() > 0L) {
+            Uri.fromFile(destFile).toString()
+        } else {
+            sourceUri.toString()
+        }
+    } catch (e: Exception) {
+        sourceUri.toString()
     }
 }

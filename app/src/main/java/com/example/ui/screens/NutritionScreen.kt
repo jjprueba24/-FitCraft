@@ -114,7 +114,7 @@ fun NutritionScreen(
                     Icon(Icons.Filled.Star, contentDescription = null, tint = NeonLime, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Sugerir con IA",
+                        text = "Recetas por Macros",
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp,
                         color = NeonLime

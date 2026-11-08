@@ -24,14 +24,12 @@ class FitnessRepository(context: Context) {
         const val GUEST_SESSION_MAX_DURATION_MS = 4L * 60 * 60 * 1000
     }
 
-    // USER PROFILE FLOW with 4-hour expiration check
+    // USER PROFILE FLOW with 4-hour expiration check for temporary guest sessions
     val userProfileFlow: Flow<UserProfile> = dao.getUserProfile().map { entity ->
         if (entity != null) {
-            // Check if this was a guest session and if it expired (4 hours)
             if (entity.isGuestSession && entity.guestSessionStartedAt != null) {
                 val elapsed = System.currentTimeMillis() - entity.guestSessionStartedAt
                 if (elapsed > GUEST_SESSION_MAX_DURATION_MS) {
-                    // 4 hours expired! Wipe all data and reset to fresh unauthenticated state
                     wipeAllUserData()
                     return@map getDefaultProfile()
                 }
@@ -48,7 +46,9 @@ class FitnessRepository(context: Context) {
                 targetWeightKg = entity.targetWeightKg,
                 gender = runCatching { Gender.valueOf(entity.gender) }.getOrDefault(Gender.MALE),
                 activityLevel = runCatching { ActivityLevel.valueOf(entity.activityLevel) }.getOrDefault(ActivityLevel.MODERATE),
-                goal = runCatching { FitnessGoal.valueOf(entity.goal) }.getOrDefault(FitnessGoal.LOSE_WEIGHT)
+                goal = runCatching { FitnessGoal.valueOf(entity.goal) }.getOrDefault(FitnessGoal.LOSE_WEIGHT),
+                trainingDaysPerWeek = entity.trainingDaysPerWeek,
+                equipment = entity.equipment
             )
         } else {
             getDefaultProfile()
@@ -68,9 +68,37 @@ class FitnessRepository(context: Context) {
             targetWeightKg = profile.targetWeightKg,
             gender = profile.gender.name,
             activityLevel = profile.activityLevel.name,
-            goal = profile.goal.name
+            goal = profile.goal.name,
+            trainingDaysPerWeek = profile.trainingDaysPerWeek,
+            equipment = profile.equipment
         )
         dao.saveUserProfile(entity)
+    }
+
+    /**
+     * Restores a full AccountSnapshot from the user's verified email Sheet into Room
+     * so all weight logs, progress photos, meals, and goals are immediately available.
+     */
+    suspend fun restoreAccountSnapshot(snapshot: AccountSnapshot) {
+        saveUserProfile(
+            snapshot.profile.copy(
+                isGuest = false,
+                guestSessionStartTime = null
+            )
+        )
+        dao.clearMeasurements()
+        snapshot.measurements.forEach { addMeasurement(it) }
+
+        dao.clearMeals()
+        snapshot.meals.forEach { addMeal(it) }
+
+        dao.clearPhotos()
+        snapshot.photos.forEach { addPhoto(it) }
+
+        dao.clearCompletedExercises()
+        snapshot.completedExercises.forEach { exId ->
+            dao.insertCompletedExercise(CompletedExerciseEntity(exId))
+        }
     }
 
     // Login with Email (Permanent account)
@@ -97,7 +125,19 @@ class FitnessRepository(context: Context) {
         )
     }
 
-    // Logout and Wipe data
+    // Safe Logout (disconnects active email in UI while keeping local and Sheet data intact)
+    suspend fun logoutSessionPreservingData() {
+        val current = userProfileFlow.firstOrNull() ?: getDefaultProfile()
+        saveUserProfile(
+            current.copy(
+                email = null,
+                isGuest = false,
+                guestSessionStartTime = null
+            )
+        )
+    }
+
+    // Full Wipe when guest 4h expires or user explicitly requests reset
     suspend fun wipeAllUserData() {
         dao.clearUserProfile()
         dao.clearMeasurements()
@@ -247,7 +287,9 @@ class FitnessRepository(context: Context) {
             targetWeightKg = 70f,
             gender = Gender.MALE,
             activityLevel = ActivityLevel.MODERATE,
-            goal = FitnessGoal.LOSE_WEIGHT
+            goal = FitnessGoal.LOSE_WEIGHT,
+            trainingDaysPerWeek = 5,
+            equipment = "Gimnasio Completo"
         )
     }
 
@@ -303,34 +345,34 @@ class FitnessRepository(context: Context) {
         val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
         return listOf(
             MealItem(
-                name = "Avena con leche y proteína",
+                name = "Avena con quinua y plátano de seda",
                 mealType = MealType.BREAKFAST,
-                calories = 420,
-                proteinGrams = 32f,
-                carbsGrams = 54f,
-                fatGrams = 8f,
+                calories = 365,
+                proteinGrams = 14f,
+                carbsGrams = 64f,
+                fatGrams = 6f,
                 dateString = today,
-                portionInfo = "1 bol grande"
+                portionInfo = "70g avena/quinua + 1 plátano"
             ),
             MealItem(
-                name = "Pechuga de pollo a la plancha con arroz",
+                name = "Pechuga de pollo a la plancha con papa y palta",
                 mealType = MealType.LUNCH,
-                calories = 540,
-                proteinGrams = 48f,
-                carbsGrams = 62f,
-                fatGrams = 9f,
+                calories = 460,
+                proteinGrams = 54f,
+                carbsGrams = 35f,
+                fatGrams = 11f,
                 dateString = today,
-                portionInfo = "200g pollo + 150g arroz"
+                portionInfo = "200g pollo + 150g papa sancochada + 50g palta"
             ),
             MealItem(
-                name = "Yogur griego con nueces y miel",
+                name = "Plátano de seda con mantequilla de maní",
                 mealType = MealType.SNACK,
-                calories = 230,
-                proteinGrams = 17f,
-                carbsGrams = 18f,
+                calories = 220,
+                proteinGrams = 6.5f,
+                carbsGrams = 28f,
                 fatGrams = 10f,
                 dateString = today,
-                portionInfo = "1 vaso"
+                portionInfo = "1 plátano + 20g mantequilla de maní"
             )
         )
     }

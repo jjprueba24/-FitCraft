@@ -29,7 +29,9 @@ data class UserProfile(
     val targetWeightKg: Float = 70f,
     val gender: Gender = Gender.MALE,
     val activityLevel: ActivityLevel = ActivityLevel.MODERATE,
-    val goal: FitnessGoal = FitnessGoal.LOSE_WEIGHT
+    val goal: FitnessGoal = FitnessGoal.LOSE_WEIGHT,
+    val trainingDaysPerWeek: Int = 5,
+    val equipment: String = "Gimnasio Completo"
 ) {
     // Harris-Benedict revised equation (Mifflin-St Jeor)
     val bmr: Int

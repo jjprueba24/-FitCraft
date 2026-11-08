@@ -16,7 +16,9 @@ data class UserProfileEntity(
     val targetWeightKg: Float = 70f,
     val gender: String = "MALE",
     val activityLevel: String = "MODERATE",
-    val goal: String = "LOSE_WEIGHT"
+    val goal: String = "LOSE_WEIGHT",
+    val trainingDaysPerWeek: Int = 5,
+    val equipment: String = "Gimnasio Completo"
 )
 
 @Entity(tableName = "measurements")

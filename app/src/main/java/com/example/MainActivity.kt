@@ -8,7 +8,6 @@ import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,13 +15,14 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.InsertChart
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Policy
 import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.InsertChart
 import androidx.compose.material.icons.outlined.Person
@@ -57,6 +57,7 @@ import com.example.ui.components.AddMeasurementBottomSheet
 import com.example.ui.components.AddProgressPhotoBottomSheet
 import com.example.ui.components.RestTimerFloatingBar
 import com.example.ui.components.TermsAndPrivacyBottomSheet
+import com.example.ui.components.UserSheetBottomSheet
 import com.example.ui.screens.NutritionScreen
 import com.example.ui.screens.ProfileScreen
 import com.example.ui.screens.ProgressScreen
@@ -64,8 +65,13 @@ import com.example.ui.screens.WorkoutScreen
 import com.example.ui.theme.DarkNavyBg
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.theme.NeonLime
+import com.example.util.configureAppCheck
 
-enum class AppNavDestination(val label: String, val iconFilled: androidx.compose.ui.graphics.vector.ImageVector, val iconOutlined: androidx.compose.ui.graphics.vector.ImageVector) {
+enum class AppNavDestination(
+    val label: String,
+    val iconFilled: androidx.compose.ui.graphics.vector.ImageVector,
+    val iconOutlined: androidx.compose.ui.graphics.vector.ImageVector
+) {
     WORKOUT("Gym", Icons.Filled.FitnessCenter, Icons.Outlined.FitnessCenter),
     NUTRITION("Dieta", Icons.Filled.Restaurant, Icons.Outlined.Restaurant),
     PROGRESS("Progreso", Icons.Filled.InsertChart, Icons.Outlined.InsertChart),
@@ -78,13 +84,21 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        configureAppCheck(this, intent)
         enableEdgeToEdge()
+        viewModel.handleSpotifyRedirectIntent(intent)
 
         setContent {
             MyApplicationTheme {
                 FitCraftApp(viewModel = viewModel)
             }
         }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        viewModel.handleSpotifyRedirectIntent(intent)
     }
 }
 
@@ -102,6 +116,8 @@ fun FitCraftApp(viewModel: FitnessViewModel) {
     var showTermsAndPrivacySheet by remember { mutableStateOf(false) }
     var showAiMealSuggestionsSheet by remember { mutableStateOf(false) }
     var showMusicPlaylistsSheet by remember { mutableStateOf(false) }
+    var showUserSheetModal by remember { mutableStateOf(false) }
+    var showGymManeToolsSheet by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -113,7 +129,7 @@ fun FitCraftApp(viewModel: FitnessViewModel) {
                             AppNavDestination.WORKOUT -> "FitCraft • Gym & Música"
                             AppNavDestination.NUTRITION -> "FitCraft • Nutrición & IA"
                             AppNavDestination.PROGRESS -> "FitCraft • Progreso & Fotos"
-                            AppNavDestination.PROFILE -> "FitCraft • Mi Perfil y Metas"
+                            AppNavDestination.PROFILE -> "FitCraft • Perfil & Sheet"
                         },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
@@ -121,6 +137,28 @@ fun FitCraftApp(viewModel: FitnessViewModel) {
                     )
                 },
                 actions = {
+                    IconButton(
+                        onClick = { showGymManeToolsSheet = true },
+                        modifier = Modifier.testTag("action_top_gymmane_tools")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Calculate,
+                            contentDescription = "Suite GymMane: Discos, 1RM y Pase QR",
+                            tint = com.example.ui.theme.AccentCyan,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = { showUserSheetModal = true },
+                        modifier = Modifier.testTag("action_top_user_sheet")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.TableChart,
+                            contentDescription = "Mi Sheet de Progreso y Fotos",
+                            tint = NeonLime,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
                     IconButton(
                         onClick = { showTermsAndPrivacySheet = true },
                         modifier = Modifier.testTag("action_top_terms")
@@ -187,13 +225,18 @@ fun FitCraftApp(viewModel: FitnessViewModel) {
                     WorkoutScreen(
                         userProfile = state.userProfile,
                         completedExerciseIds = state.completedExercises,
+                        customExercises = state.customExercises,
                         currentDayIndex = state.currentDayIndex,
                         currentMusicTrack = state.currentMusicTrack,
+                        spotifyState = state.spotifyState,
                         isMusicPlaying = state.isMusicPlaying,
                         musicProgress = state.musicProgressPercent,
                         onToggleMusicPlay = { viewModel.toggleMusicPlay() },
+                        onPreviousMusicTrack = { viewModel.previousMusicTrack() },
                         onNextMusicTrack = { viewModel.nextMusicTrack() },
+                        onConnectSpotify = { viewModel.connectSpotifyAccount() },
                         onOpenMusicPlaylists = { showMusicPlaylistsSheet = true },
+                        onOpenGymManeTools = { showGymManeToolsSheet = true },
                         onSelectDay = { viewModel.selectDay(it) },
                         onToggleExerciseCompleted = { viewModel.toggleExerciseCompleted(it) },
                         onStartRestTimer = { sec, name -> viewModel.startRestTimer(sec, name) },
@@ -229,11 +272,20 @@ fun FitCraftApp(viewModel: FitnessViewModel) {
                 AppNavDestination.PROFILE -> {
                     ProfileScreen(
                         userProfile = state.userProfile,
-                        onLoginWithEmail = { email -> viewModel.loginWithEmail(email) },
+                        authStatus = state.authStatus,
+                        onRequestEmailVerification = { email, pin ->
+                            viewModel.requestEmailVerification(email, pin)
+                        },
+                        onConfirmVerificationCode = { email, code ->
+                            viewModel.confirmVerificationCode(email, code)
+                        },
+                        onOpenUserSheet = { showUserSheetModal = true },
+                        onExportUserSheet = { viewModel.exportUserSheetCsv() },
                         onContinueAsGuest = { viewModel.startGuestSession() },
+                        onLogoutPreservingData = { viewModel.logoutPreservingData() },
                         onWipeAndReset = { viewModel.wipeAndResetData() },
-                        onSaveProfile = { h, w, tw, goal, act, gen, age ->
-                            viewModel.updateUserProfile(h, w, tw, goal, act, gen, age)
+                        onSaveProfile = { h, w, tw, goal, act, gen, age, days, equip ->
+                            viewModel.updateUserProfile(h, w, tw, goal, act, gen, age, days, equip)
                         },
                         onOpenTermsAndPrivacy = { showTermsAndPrivacySheet = true }
                     )
@@ -293,6 +345,18 @@ fun FitCraftApp(viewModel: FitnessViewModel) {
         )
     }
 
+    if (showUserSheetModal) {
+        UserSheetBottomSheet(
+            userProfile = state.userProfile,
+            authStatus = state.authStatus,
+            measurements = state.measurements,
+            meals = state.meals,
+            photos = state.photos,
+            onExportSheetCsv = { viewModel.exportUserSheetCsv() },
+            onDismiss = { showUserSheetModal = false }
+        )
+    }
+
     if (showAiMealSuggestionsSheet) {
         val totalCalories = state.meals.sumOf { it.calories }
         val totalProtein = state.meals.sumOf { it.proteinGrams.toDouble() }.toFloat()
@@ -310,6 +374,12 @@ fun FitCraftApp(viewModel: FitnessViewModel) {
             remainingProtein = remProtein,
             remainingCarbs = remCarbs,
             remainingFat = remFat,
+            geminiGeneratedRecipes = state.geminiRecipes,
+            isGeneratingGeminiRecipe = state.isGeneratingGeminiRecipe,
+            geminiErrorMessage = state.geminiErrorMessage,
+            onGenerateWithGemini = { ingredients ->
+                viewModel.generatePeruvianRecipeWithGemini(ingredients)
+            },
             onAcceptMeal = { viewModel.addMeal(it) },
             onDismiss = { showAiMealSuggestionsSheet = false }
         )
@@ -318,9 +388,25 @@ fun FitCraftApp(viewModel: FitnessViewModel) {
     if (showMusicPlaylistsSheet) {
         com.example.ui.components.MusicPlaylistsBottomSheet(
             currentTrackId = state.currentMusicTrack.id,
+            spotifyState = state.spotifyState,
             isPlaying = state.isMusicPlaying,
+            onConnectSpotify = { viewModel.connectSpotifyAccount() },
+            onDisconnectSpotify = { viewModel.disconnectSpotifyAccount() },
+            onSelectPlaylist = { viewModel.selectSpotifyPlaylist(it) },
+            onOpenPlaylistInSpotify = { viewModel.openPlaylistInSpotifyApp(it) },
             onSelectTrack = { viewModel.selectMusicTrack(it) },
+            onSelectLocalAudioUri = { uri, title -> viewModel.playLocalDeviceAudio(uri, title) },
             onDismiss = { showMusicPlaylistsSheet = false }
+        )
+    }
+
+    if (showGymManeToolsSheet) {
+        com.example.ui.components.GymManeToolsBottomSheet(
+            completedExercisesCount = state.completedExercises.size,
+            measurementsCount = state.measurements.size,
+            mealsCount = state.meals.size,
+            onAddCustomExercise = { viewModel.addCustomExercise(it) },
+            onDismiss = { showGymManeToolsSheet = false }
         )
     }
 }

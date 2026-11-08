@@ -114,7 +114,15 @@ fun ProgressScreen(
             }
         }
 
-        // 2. Before & After Visual Comparison Card
+        // 2. 6-Axis Muscle Balance Radar Chart (GymMane)
+        item {
+            com.example.ui.components.MuscleBalanceRadarCard(
+                completedExercisesCount = measurements.size + 2,
+                measurementsCount = measurements.size
+            )
+        }
+
+        // 3. Before & After Visual Comparison Card
         item {
             BeforeAfterComparisonView(photos = photos)
         }
